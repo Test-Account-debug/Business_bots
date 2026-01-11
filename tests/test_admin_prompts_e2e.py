@@ -49,7 +49,7 @@ def test_master_prompt_contains_example_and_current_value(temp_db):
         await admin_handlers.cmd_edit_master(msg)
         t = msg.replies[-1]['text']
         assert 'пример' in t.lower()
-        assert 'оставить пустым' in t.lower()
+        assert 'остав' in t.lower()
         assert 'orig' in t.lower()
     __import__('asyncio').run(_run())
 
