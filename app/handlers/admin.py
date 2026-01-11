@@ -264,7 +264,7 @@ async def cmd_edit_master(message: Message):
         await message.answer('Мастер не найден')
         return
     STAGED_EDITS[message.from_user.id] = {'type':'master', 'id': mid, 'step':'name', 'data': {'name': m['name'], 'bio': m['bio'], 'contact': m['contact']}}
-    await message.answer(f"Введите новое имя мастера (пример: Иван Иванов, оставить пустым чтобы оставить текущее: {m['name']})")
+    await message.answer(f"Введите новое имя мастера — кратко и понятно (пример: Иван Иванов). Оставьте пустым, чтобы сохранить текущее: {m['name']}")
 
 
 @router.message(Command('edit_service'))
@@ -380,7 +380,7 @@ async def handle_staged_edit(message: Message):
                     return
                 staged['data']['name'] = text
             staged['step'] = 'bio'
-            await message.answer(f"Введите короткое описание (bio) (пример: 'Опытный мастер по стрижкам', макс {MAX_BIO_LEN} символов, оставить пустым чтобы оставить текущее: {staged['data'].get('bio')})")
+            await message.answer(f"Введите короткое описание (bio). Пример: 'Опытный мастер по стрижкам' (макс {MAX_BIO_LEN} символов). Оставьте пустым, чтобы сохранить текущее: {staged['data'].get('bio')}")
             return
         if step == 'bio':
             if text:
@@ -389,7 +389,7 @@ async def handle_staged_edit(message: Message):
                     return
                 staged['data']['bio'] = text
             staged['step'] = 'contact'
-            await message.answer(f"Введите контакт (например: +7 900 000-00-00 или @username, оставить пустым чтобы оставить текущее: {staged['data'].get('contact')})")
+            await message.answer(f"Введите контакт (например: +7 900 000-00-00 или @username). Оставьте пустым, чтобы сохранить текущее: {staged['data'].get('contact')}")
             return
         if step == 'contact':
             if text:
@@ -415,31 +415,31 @@ async def handle_staged_edit(message: Message):
                     return
                 staged['data']['name'] = text
             staged['step'] = 'price'
-            await message.answer(f"Введите цену (пример: 12.5, между {MIN_PRICE} и {MAX_PRICE}, оставить пустым чтобы оставить текущее: {staged['data'].get('price')})")
+            await message.answer(f"Введите цену (пример: 12.5). Допустимый диапазон: {MIN_PRICE} — {MAX_PRICE}. Оставьте пустым, чтобы сохранить текущее: {staged['data'].get('price')}")
             return
         if step == 'price':
             if text:
                 try:
                     v = float(text)
                 except Exception:
-                    await message.answer('Неверный формат цены, введите число, например: 12.5')
+                    await message.answer('Неверный формат цены. Введите число, например: 12.5')
                     return
                 if not (MIN_PRICE <= v <= MAX_PRICE):
-                    await message.answer(f'Цена должна быть между {MIN_PRICE} и {MAX_PRICE}')
+                    await message.answer(f'Цена должна быть между {MIN_PRICE} и {MAX_PRICE}. Введите корректное значение, например 12.5')
                     return
                 staged['data']['price'] = v
             staged['step'] = 'duration'
-            await message.answer(f"Введите длительность в минутах (пример: 30, между {MIN_DURATION} и {MAX_DURATION}, оставить пустым чтобы оставить текущее: {staged['data'].get('duration_minutes')})")
+            await message.answer(f"Введите длительность в минутах (пример: 30). Допустимый диапазон: {MIN_DURATION} — {MAX_DURATION} минут. Оставьте пустым, чтобы сохранить текущее: {staged['data'].get('duration_minutes')}")
             return
         if step == 'duration':
             if text:
                 try:
                     v = int(text)
                 except Exception:
-                    await message.answer('Неверный формат длительности, введите целое число, например: 45')
+                    await message.answer('Неверный формат длительности. Введите целое число, например: 45')
                     return
                 if not (MIN_DURATION <= v <= MAX_DURATION):
-                    await message.answer(f'Длительность должна быть между {MIN_DURATION} и {MAX_DURATION} минут')
+                    await message.answer(f'Длительность должна быть между {MIN_DURATION} и {MAX_DURATION} минут. Введите корректное значение, например: 30')
                     return
                 staged['data']['duration_minutes'] = v
             staged['step'] = 'description'
