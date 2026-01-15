@@ -43,37 +43,37 @@ async def cmd_leave_review(message: Message):
     """
     args = message.get_args()
     if not args or '|' not in args:
-        await message.answer('Использование: /leave_review service_id|master_id|rating|текст (master_id или service_id можно оставить 0)')
+        await message.answer('Использование: /leave_review service_id|master_id|rating|текст\nПример: /leave_review 1|2|5|Отличная стрижка!')
         return
     parts = [x.strip() for x in args.split('|', 3)]
     try:
         service_id = int(parts[0]) if parts[0] else None
     except Exception:
-        await message.answer('Неверный service_id')
+        await message.answer('Неверный service_id. Укажите число или оставьте пустым.')
         return
     try:
         master_id = int(parts[1]) if parts[1] else None
     except Exception:
-        await message.answer('Неверный master_id')
+        await message.answer('Неверный master_id. Укажите число или оставьте пустым.')
         return
     if not service_id and not master_id:
-        await message.answer('Укажите service_id или master_id')
+        await message.answer('Укажите хотя бы service_id или master_id. Пример: /leave_review 1||5|Хорошая услуга')
         return
     try:
         rating = int(parts[2])
         if not (1 <= rating <= 5):
             raise Exception('out of range')
     except Exception:
-        await message.answer('Оценка должна быть целым числом от 1 до 5')
+        await message.answer('Оценка должна быть числом от 1 до 5. Например: 4')
         return
     text = parts[3] if len(parts) > 3 else None
     if text and len(text) > MAX_REVIEW_TEXT:
-        await message.answer(f'Текст отзыва слишком длинный (макс {MAX_REVIEW_TEXT} символов)')
+        await message.answer(f'Текст отзыва слишком длинный (максимум {MAX_REVIEW_TEXT} символов). Пожалуйста, сократите.')
         return
     # ensure user exists
     user = await get_or_create_user(message.from_user.id)
     rid = await create_review(user['id'], service_id, master_id, rating, text)
-    await message.answer('Спасибо! Отзыв сохранён.')
+    await message.answer('Спасибо за ваш отзыв! ⭐ Он поможет нам стать лучше.')
     # notify admins
     await notify_mod.notify_admins(f"Новый отзыв: id={rid} рейтинг={rating} мастер={master_id} услуга={service_id} текст={text or ''}")
 
@@ -86,20 +86,20 @@ async def cb_review_rating(query, state):
         rating = int(parts[2])
         booking_id = int(parts[4])
     except Exception:
-        await query.answer('Неверные данные', show_alert=True)
+        await query.answer('Неверные данные. Попробуйте снова.', show_alert=True)
         return
     from app.repo import get_booking, get_user_by_id
     b = await get_booking(booking_id)
     if not b:
-        await query.answer('Бронирование не найдено', show_alert=True)
+        await query.answer('Бронирование не найдено. Обратитесь в поддержку.', show_alert=True)
         return
     if b['status'] != 'completed':
-        await query.answer('Отзыв можно оставить только после завершения посещения', show_alert=True)
+        await query.answer('Отзыв можно оставить только после завершения визита. Подождите подтверждения от мастера.', show_alert=True)
         return
     # determine DB user id
     user_db = await get_user_by_id(b['user_id'])
     if not user_db:
-        await query.answer('Пользователь не найден', show_alert=True)
+        await query.answer('Пользователь не найден. Обратитесь в поддержку.', show_alert=True)
         return
     rid = await create_review(user_db['id'], b['service_id'], b['master_id'], rating, None)
     try:
@@ -107,10 +107,10 @@ async def cb_review_rating(query, state):
     except Exception:
         pass
     try:
-        await query.message.answer('Спасибо за оценку!')
+        await query.message.answer('Спасибо за вашу оценку! ⭐ Если хотите, оставьте комментарий.')
     except Exception:
         pass
-    await query.answer('Принято', show_alert=False)
+    await query.answer('Принято!', show_alert=False)
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith('review:text:booking:'))
@@ -119,11 +119,11 @@ async def cb_review_text_start(query, state):
     try:
         booking_id = int(query.data.split(':')[-1])
     except Exception:
-        await query.answer('Неверные данные', show_alert=True)
+        await query.answer('Неверные данные. Попробуйте снова.', show_alert=True)
         return
     await state.update_data(booking_id=booking_id)
     await _set_state(state, ReviewStates.RATING)
-    await query.message.answer('Пожалуйста, введите оценку от 1 до 5 (только цифра):')
+    await query.message.answer('Как бы вы оценили визит? Введите число от 1 до 5 ⭐\nПример: 4')
     await query.answer('Введите оценку')
 
 
@@ -137,10 +137,10 @@ async def r_review_rating(message, state):
         if rating < 1 or rating > 5:
             raise Exception()
     except Exception:
-        await message.answer('Оценка должна быть целым числом от 1 до 5')
+        await message.answer('Пожалуйста, введите число от 1 до 5. Например: 5')
         return
     await state.update_data(rating=rating)
-    await message.answer('Введите комментарий (или оставьте пустым):')
+    await message.answer('Расскажите подробнее (необязательно): что понравилось, что можно улучшить?')
     await _set_state(state, ReviewStates.TEXT)
 
 
@@ -169,7 +169,7 @@ async def r_review_text(message, state):
         await notify_mod.notify_admins(f"Новый отзыв: id={rid} рейтинг={rating} мастер={b['master_id']} услуга={b['service_id']} текст={text or ''}")
     except Exception:
         pass
-    await message.answer('Спасибо! Отзыв сохранён.')
+    await message.answer('Спасибо за подробный отзыв! ⭐ Мы учтём ваши пожелания.')
     await state.clear()
 
 @router.message(Command('list_reviews'))

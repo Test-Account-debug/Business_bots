@@ -115,7 +115,7 @@ def test_interactive_review_flow(temp_db):
         rating_msg = FakeMessage(user['id'], 1, text='4')
         await reviews_handlers.r_review_rating(rating_msg, state)
         # should prompt for comment
-        assert 'комментар' in rating_msg.replies[-1]['text'].lower()
+        assert 'расскажите подробнее' in rating_msg.replies[-1]['text'].lower()
         # send comment
         comment_msg = FakeMessage(user['id'], 1, text='Хорошо')
         await reviews_handlers.r_review_text(comment_msg, state)

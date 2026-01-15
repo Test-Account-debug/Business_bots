@@ -44,7 +44,7 @@ async def cb_select_service(query: CallbackQuery, state: FSMContext):
     # list masters
     masters = await list_masters()
     if not masters:
-        await query.message.answer('Нет мастеров. Админ должен добавить мастеров.')
+        await query.message.answer('😔 К сожалению, сейчас нет доступных мастеров. Попробуйте позже или обратитесь в поддержку.')
         return
     text = 'Выберите мастера или без выбора:'
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -59,7 +59,7 @@ async def cb_select_service(query: CallbackQuery, state: FSMContext):
 async def cb_select_master(query: CallbackQuery, state: FSMContext):
     master_id = int(query.data.split(':')[-1])
     await state.update_data(master_id=master_id)
-    await query.message.answer('Введите дату в формате YYYY-MM-DD (например, 2026-01-15)')
+    await query.message.answer('📅 Введите дату визита в формате ГГГГ-ММ-ДД. Пример: 2026-01-15')
     await _set_state(state, BookingStates.DATE)
     await query.answer("")
 
@@ -84,7 +84,7 @@ async def cb_manual_start(query: CallbackQuery, state: FSMContext):
             master_id = None
     await state.update_data(manual_master_id=master_id)
     await state.update_data(manual_service_id=(await state.get_data()).get('service_id'))
-    await query.message.answer('Опишите предпочитаемое время или дополнительные пожелания (например: утро, после 16:00). Оставьте пустым, если нет предпочтений.')
+    await query.message.answer('🕒 Опишите предпочитаемое время или дополнительные пожелания (например: утро, после 16:00). Оставьте пустым, если нет предпочтений.')
     await _set_state(state, ManualRequestStates.PREFER)
     await query.answer("")
 
@@ -158,7 +158,7 @@ async def cb_manual_confirm(query: CallbackQuery, state: FSMContext):
         await notify_admins(f"Новая ручная заявка id={rid} {text}")
     except Exception:
         pass
-    await query.message.answer('Ручная заявка отправлена админам. Мы свяжемся с вами.')
+    await query.message.answer('✅ Ручная заявка отправлена админам. Мы свяжемся с вами в ближайшее время! 📞')
     await state.clear()
     await query.answer("")
 
@@ -172,7 +172,7 @@ async def cb_master_choose(query: CallbackQuery, state: FSMContext):
     from app.repo import get_service, get_master
     svc = await get_service(svc_id)
     if not svc:
-        await query.message.answer('Ошибка: услуга не найдена')
+        await query.message.answer('❌ Ошибка: услуга не найдена. Попробуйте начать заново.')
         await query.answer("")
         return
     slots = await generate_slots(mid, date_s, svc['duration_minutes'])
@@ -182,7 +182,7 @@ async def cb_master_choose(query: CallbackQuery, state: FSMContext):
             InlineKeyboardButton(text='Отправить ручную заявку админу', callback_data=f'manual:request:start:master:{mid}'),
             InlineKeyboardButton(text='Отмена', callback_data='manual:request:cancel')
         ]])
-        await query.message.answer('На этот день нет доступных слотов для этого мастера. Хотите отправить ручную заявку?', reply_markup=kb)
+        await query.message.answer('😔 На этот день нет доступных слотов для этого мастера. Хотите отправить ручную заявку?', reply_markup=kb)
         await query.answer("")
         return
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -264,7 +264,7 @@ async def process_date(message: Message, state: FSMContext):
 async def cb_select_time(query: CallbackQuery, state: FSMContext):
     time_s = query.data.split(':')[-1]
     await state.update_data(time=time_s)
-    await query.message.answer('Введите ваше имя:')
+    await query.message.answer('👤 Введите ваше имя:')
     await _set_state(state, BookingStates.NAME)
     await query.answer("")
 
@@ -321,12 +321,12 @@ async def cb_confirm(query: CallbackQuery, state: FSMContext):
     try:
         await create_booking(user['id'], data['service_id'], data['master_id'] if data['master_id'] != 0 else None, data['date'], data['time'], data['name'], data['phone'])
     except SlotTaken:
-        await query.message.answer('Извините, это время уже занято. Попробуйте выбрать другое.')
+        await query.message.answer('😔 Извините, это время уже занято. Попробуйте выбрать другое.')
         await state.clear()
         await query.answer("")
         return
     except DoubleBooking:
-        await query.message.answer('У вас уже есть активная запись. Нельзя записаться второй раз.')
+        await query.message.answer('⚠️ У вас уже есть активная запись. Нельзя записаться второй раз.')
         await state.clear()
         await query.answer("")
         return
@@ -336,7 +336,7 @@ async def cb_confirm(query: CallbackQuery, state: FSMContext):
         await notify_admins(f"Новая запись: {data['date']} {data['time']} Услуга:{data['service_id']} Мастер:{data['master_id']} Клиент:{data['name']} {data['phone']}")
     except Exception:
         pass
-    await query.message.answer('Запись подтверждена! Админ уведомлён.')
+    await query.message.answer('🎉 Запись подтверждена! Админ уведомлён. Ждём вас!')
     await state.clear()
     await query.answer()
 
@@ -346,6 +346,6 @@ async def cb_cancel(query: CallbackQuery, state: FSMContext):
     if cur != BookingStates.CONFIRM.state:
         await query.answer("")
         return
-    await query.message.answer('Запись отменена.')
+    await query.message.answer('❌ Запись отменена.')
     await state.clear()
     await query.answer()

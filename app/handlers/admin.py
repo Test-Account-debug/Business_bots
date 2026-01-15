@@ -161,37 +161,35 @@ async def cmd_list_bookings(message: Message):
 async def cmd_complete_booking(message: Message):
     """Mark a booking as completed and send a review request to the client."""
     if not is_admin(message.from_user.id):
-        await message.answer('Доступ запрещён')
+        await message.answer('🚫 Доступ запрещён. Только для администраторов.')
         return
     args = message.get_args()
     if not args:
-        await message.answer('Использование: /complete_booking booking_id')
+        await message.answer('Использование: /complete_booking booking_id\nПример: /complete_booking 123')
         return
     try:
         bid = int(args.strip())
     except Exception:
-        await message.answer('Неверный booking_id')
+        await message.answer('Неверный booking_id. Укажите число, например: 123')
         return
-    # set status to completed
-    from app.repo import set_booking_status, get_booking, get_user_by_id
     await set_booking_status(bid, 'completed')
     b = await get_booking(bid)
     if not b:
-        await message.answer('Бронирование не найдено')
+        await message.answer('❌ Бронирование не найдено. Проверьте ID.')
         return
     # send review prompt to the user
     user = await get_user_by_id(b['user_id'])
     if not user or not user['tg_id']:
-        await message.answer('Не удалось найти Telegram ID клиента')
+        await message.answer('❌ Не удалось найти Telegram ID клиента. Возможно, пользователь не зарегистрирован.')
         return
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    rows = [[InlineKeyboardButton(text=str(i), callback_data=f'review:rating:{i}:booking:{bid}') for i in range(1,6)], [InlineKeyboardButton(text='Оставить комментарий', callback_data=f'review:text:booking:{bid}')]]
+    rows = [[InlineKeyboardButton(text=str(i), callback_data=f'review:rating:{i}:booking:{bid}') for i in range(1,6)], [InlineKeyboardButton(text='Добавить комментарий', callback_data=f'review:text:booking:{bid}')]]
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
     try:
-        await message.bot.send_message(user['tg_id'], 'Как прошёл визит? Оцените от 1 до 5 и, если хотите, оставьте комментарий', reply_markup=kb)
-        await message.answer('Клиенту отправлен запрос отзыва')
+        await message.bot.send_message(user['tg_id'], 'Спасибо, что выбрали нас! ⭐ Как прошёл ваш визит? Оцените от 1 до 5 и поделитесь впечатлениями.', reply_markup=kb)
+        await message.answer('✅ Отлично! Клиенту отправлен запрос на отзыв. 📝')
     except Exception as e:
-        await message.answer('Ошибка при отправке сообщения клиенту: ' + str(e))
+        await message.answer('❌ Ошибка при отправке сообщения клиенту: ' + str(e))
 
 @router.message(Command('export_bookings'))
 async def cmd_export_bookings(message: Message):
