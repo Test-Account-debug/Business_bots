@@ -190,6 +190,28 @@ async def list_bookings():
     return rows
 
 
+async def get_booking(booking_id: int):
+    db = await get_db()
+    cur = await db.execute('SELECT * FROM bookings WHERE id=?', (booking_id,))
+    row = await cur.fetchone()
+    await db.close()
+    return row
+
+
+async def set_booking_status(booking_id: int, status: str):
+    db = await get_db()
+    await db.execute('UPDATE bookings SET status=? WHERE id=?', (status, booking_id))
+    await db.commit()
+    await db.close()
+
+async def get_user_by_id(user_id: int):
+    db = await get_db()
+    cur = await db.execute('SELECT * FROM users WHERE id=?', (user_id,))
+    row = await cur.fetchone()
+    await db.close()
+    return row
+
+
 async def add_exception(master_id: int, date_s: str, available: int = 1, start_time: str = None, end_time: str = None, note: str = None):
     db = await get_db()
     # upsert
@@ -208,3 +230,80 @@ async def list_exceptions(master_id: int):
     rows = await cur.fetchall()
     await db.close()
     return rows
+
+# Manual request CRUD (for cases when no slots available)
+async def create_manual_request(user_id: int, text: str):
+    db = await get_db()
+    cur = await db.execute('INSERT INTO manual_requests (user_id, text, processed) VALUES (?,?,0)', (user_id, text))
+    await db.commit()
+    await db.close()
+    return cur.lastrowid
+
+async def list_manual_requests(limit: int = 100):
+    db = await get_db()
+    cur = await db.execute('SELECT * FROM manual_requests ORDER BY created_at DESC LIMIT ?', (limit,))
+    rows = await cur.fetchall()
+    await db.close()
+    return rows
+
+async def set_manual_request_processed(request_id: int, processed: int = 1):
+    db = await get_db()
+    await db.execute('UPDATE manual_requests SET processed=? WHERE id=?', (processed, request_id))
+    await db.commit()
+    await db.close()
+
+# Reviews CRUD and aggregation
+async def create_review(user_id: int, service_id: int = None, master_id: int = None, rating: int = 5, text: str = None):
+    db = await get_db()
+    cur = await db.execute('INSERT INTO reviews (user_id, service_id, master_id, rating, text) VALUES (?,?,?,?,?)', (user_id, service_id, master_id, rating, text))
+    await db.commit()
+    await db.close()
+    return cur.lastrowid
+
+async def get_review(review_id: int):
+    db = await get_db()
+    cur = await db.execute('SELECT * FROM reviews WHERE id=?', (review_id,))
+    row = await cur.fetchone()
+    await db.close()
+    return row
+
+async def delete_review(review_id: int):
+    db = await get_db()
+    await db.execute('DELETE FROM reviews WHERE id=?', (review_id,))
+    await db.commit()
+    await db.close()
+
+async def list_reviews(service_id: int = None, master_id: int = None, limit: int = None):
+    db = await get_db()
+    sql = 'SELECT r.*, u.tg_id as user_tg_id FROM reviews r LEFT JOIN users u ON r.user_id = u.id'
+    where = []
+    params = []
+    if service_id is not None:
+        where.append('r.service_id=?')
+        params.append(service_id)
+    if master_id is not None:
+        where.append('r.master_id=?')
+        params.append(master_id)
+    if where:
+        sql += ' WHERE ' + ' AND '.join(where)
+    sql += ' ORDER BY r.created_at DESC'
+    if limit:
+        sql += f' LIMIT {int(limit)}'
+    cur = await db.execute(sql, tuple(params))
+    rows = await cur.fetchall()
+    await db.close()
+    return rows
+
+async def average_rating_for_master(master_id: int):
+    db = await get_db()
+    cur = await db.execute('SELECT AVG(rating) as avg, COUNT(*) as cnt FROM reviews WHERE master_id=?', (master_id,))
+    row = await cur.fetchone()
+    await db.close()
+    return (row['avg'] or 0.0, row['cnt'] or 0)
+
+async def average_rating_for_service(service_id: int):
+    db = await get_db()
+    cur = await db.execute('SELECT AVG(rating) as avg, COUNT(*) as cnt FROM reviews WHERE service_id=?', (service_id,))
+    row = await cur.fetchone()
+    await db.close()
+    return (row['avg'] or 0.0, row['cnt'] or 0)

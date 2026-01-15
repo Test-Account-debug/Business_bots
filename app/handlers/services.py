@@ -11,5 +11,6 @@ async def cmd_services(message: Message):
         await message.answer('Нет доступных услуг.')
         return
     for s in services:
-        kb = InlineKeyboardMarkup().add(InlineKeyboardButton('Записаться', callback_data=f'book:service:{s["id"]}'))
+        rows = [[InlineKeyboardButton(text='Записаться', callback_data=f'book:service:{s["id"]}')]]
+        kb = InlineKeyboardMarkup(inline_keyboard=rows)
         await message.answer(f"{s['name']} — {s['price']}\n{s.get('description','')}", reply_markup=kb)

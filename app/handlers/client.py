@@ -22,7 +22,8 @@ async def show_services(message: Message):
     if not services:
         await message.answer('Пока нет доступных услуг. Админ может добавить через /admin')
         return
-    kb = InlineKeyboardMarkup()
+    rows = []
     for s in services:
-        kb.add(InlineKeyboardButton(f"{s['name']} — {s['price']}", callback_data=f"book:service:{s['id']}"))
+        rows.append([InlineKeyboardButton(text=f"{s['name']} — {s['price']}", callback_data=f"book:service:{s['id']}")])
+    kb = InlineKeyboardMarkup(inline_keyboard=rows)
     await message.answer('Выберите услугу:', reply_markup=kb)
