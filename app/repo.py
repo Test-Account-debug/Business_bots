@@ -155,9 +155,9 @@ async def create_booking(user_id, service_id, master_id, date_s, time_s, name, p
         max_attempts = 5
         for attempt in range(max_attempts):
             try:
-                await db.execute('INSERT INTO bookings (user_id, service_id, master_id, date, time, status, name, phone) VALUES (?,?,?,?,?,?,?,?)', (user_id, service_id, master_id, date_s, time_s, 'scheduled', name, phone))
+                cur = await db.execute('INSERT INTO bookings (user_id, service_id, master_id, date, time, status, name, phone) VALUES (?,?,?,?,?,?,?,?)', (user_id, service_id, master_id, date_s, time_s, 'scheduled', name, phone))
                 await db.commit()
-                break
+                return cur.lastrowid
             except OperationalError as e:
                 # transient DB locked — retry a few times
                 if 'locked' in str(e).lower():

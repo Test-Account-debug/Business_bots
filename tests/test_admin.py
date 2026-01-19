@@ -2,7 +2,7 @@ import asyncio
 import os
 import pytest
 from app.repo import create_master, get_master, update_master, delete_master, create_service, get_service, update_service, delete_service
-from app.admin_utils import export_bookings_csv
+from app.admin_utils import export_bookings_csv_bytes
 
 def test_master_crud(temp_db):
     async def _run():
@@ -32,7 +32,7 @@ def test_service_crud(temp_db):
 
 def test_export_bookings_csv(temp_db):
     async def _run():
-        path = await export_bookings_csv('export/test_bookings.csv')
-        assert os.path.exists(path)
-        os.remove(path)
+        data = await export_bookings_csv_bytes()
+        assert isinstance(data, bytes)
+        assert len(data) > 0
     __import__('asyncio').run(_run())

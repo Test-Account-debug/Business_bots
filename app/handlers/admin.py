@@ -2,7 +2,11 @@ from aiogram import Router
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.filters import Command
 import os
-from app.repo import create_master, create_service, list_bookings, set_master_schedule, delete_master, delete_service, update_master, update_service, get_master, get_service
+from app.repo import (
+    create_master, create_service, list_bookings, set_master_schedule, delete_master, 
+    delete_service, update_master, update_service, get_master, get_service, get_user_by_id,
+    get_booking, set_booking_status
+)
 from app.scheduler import add_exception, list_exceptions
 
 router = Router()
@@ -191,7 +195,63 @@ async def cmd_complete_booking(message: Message):
     except Exception as e:
         await message.answer('❌ Ошибка при отправке сообщения клиенту: ' + str(e))
 
-@router.message(Command('export_bookings'))
+@router.message(Command('show_ratings'))
+async def cmd_show_ratings(message: Message):
+    if not is_admin(message.from_user.id):
+        await message.answer('🚫 Доступ запрещён. Только для администраторов.')
+        return
+    from app.repo import average_rating_for_master, average_rating_for_service, list_masters, list_services
+    masters = await list_masters()
+    services = await list_services()
+    text = '📊 Средние рейтинги:\n\n'
+    text += '👨‍💼 Мастера:\n'
+    for m in masters:
+        avg, cnt = await average_rating_for_master(m['id'])
+        text += f"  {m['name']}: {avg:.1f} ⭐ ({cnt} отзывов)\n"
+    text += '\n💇 Услуги:\n'
+    for s in services:
+        avg, cnt = await average_rating_for_service(s['id'])
+        text += f"  {s['name']}: {avg:.1f} ⭐ ({cnt} отзывов)\n"
+    await message.answer(text)
+
+@router.message(Command('send_reminder'))
+async def cmd_send_reminder(message: Message):
+    if not is_admin(message.from_user.id):
+        await message.answer('🚫 Доступ запрещён. Только для администраторов.')
+        return
+    args = message.get_args()
+    if not args:
+        await message.answer('Использование: /send_reminder booking_id\nПример: /send_reminder 123')
+        return
+    try:
+        bid = int(args.strip())
+    except Exception:
+        await message.answer('Неверный booking_id. Укажите число, например: 123')
+        return
+    b = await get_booking(bid)
+    if not b:
+        await message.answer('❌ Бронирование не найдено. Проверьте ID.')
+        return
+    if b['status'] != 'scheduled':
+        await message.answer('❌ Напоминание можно отправить только для активных записей.')
+        return
+    user = await get_user_by_id(b['user_id'])
+    if not user or not user['tg_id']:
+        await message.answer('❌ Не удалось найти Telegram ID клиента.')
+        return
+    # Get master and service names
+    master = await get_master(b['master_id'])
+    service = await get_service(b['service_id'])
+    master_name = master['name'] if master else 'Мастер'
+    service_name = service['name'] if service else 'Услуга'
+    reminder_text = f'🔔 Напоминание о вашем визите!\n\n📅 Дата: {b["date"]}\n🕒 Время: {b["time"]}\n👨‍💼 Мастер: {master_name}\n💇 Услуга: {service_name}\n\nЖдём вас! Если нужно перенести — свяжитесь с нами.'
+    try:
+        await message.bot.send_message(user['tg_id'], reminder_text)
+        await message.answer('✅ Напоминание отправлено клиенту.')
+    except Exception as e:
+        await message.answer('❌ Ошибка при отправке напоминания: ' + str(e))
+
+@router.message(Command('export'))
 async def cmd_export_bookings(message: Message):
     if not is_admin(message.from_user.id):
         await message.answer('Доступ запрещён')
@@ -208,6 +268,80 @@ async def cmd_export_bookings(message: Message):
         await message.answer('Экспорт отправлен')
     except Exception as e:
         await message.answer('Ошибка экспорта: ' + str(e))
+
+@router.message(Command('export_reviews'))
+async def cmd_export_reviews(message: Message):
+    if not is_admin(message.from_user.id):
+        await message.answer('Доступ запрещён')
+        return
+    from app.admin_utils import export_reviews_csv_bytes
+    from aiogram.types import InputFile
+    from io import BytesIO
+    try:
+        data = await export_reviews_csv_bytes()
+        bio = BytesIO(data)
+        bio.seek(0)
+        await message.bot.send_document(message.chat.id, bio, filename='reviews_export.csv', caption='Экспорт отзывов', disable_notification=True)
+        await message.answer('Экспорт отзывов отправлен')
+    except Exception as e:
+        await message.answer('Ошибка экспорта: ' + str(e))
+
+@router.message(Command('send_reminder'))
+async def cmd_send_reminder(message: Message):
+    if not is_admin(message.from_user.id):
+        await message.answer('Доступ запрещён')
+        return
+    args = message.get_args()
+    if not args:
+        await message.answer('Использование: /send_reminder <booking_id>')
+        return
+    try:
+        booking_id = int(args.strip())
+    except ValueError:
+        await message.answer('Неверный booking_id')
+        return
+    from app.repo import get_booking, get_master, get_service, get_user_by_id
+    booking = await get_booking(booking_id)
+    if not booking:
+        await message.answer('Запись не найдена')
+        return
+    master = await get_master(booking['master_id'])
+    service = await get_service(booking['service_id'])
+    user = await get_user_by_id(booking['user_id'])
+    if not user or not user['tg_id']:
+        await message.answer('Пользователь не найден или нет tg_id')
+        return
+    reminder_text = f'🔔 Напоминание о записи!\n\n' \
+                    f'📅 Дата: {booking["date"]}\n' \
+                    f'🕒 Время: {booking["time"]}\n' \
+                    f'👨‍💼 Мастер: {master["name"]}\n' \
+                    f'💇‍♀️ Услуга: {service["name"]}\n' \
+                    f'💰 Цена: {service["price"]} руб.\n\n' \
+                    f'Ждём вас!'
+    try:
+        await message.bot.send_message(user['tg_id'], reminder_text)
+        await message.answer('Напоминание отправлено')
+    except Exception as e:
+        await message.answer('Ошибка отправки: ' + str(e))
+
+@router.message(Command('show_ratings'))
+async def cmd_show_ratings(message: Message):
+    if not is_admin(message.from_user.id):
+        await message.answer('Доступ запрещён')
+        return
+    from app.repo import list_masters, list_services, average_rating_for_master, average_rating_for_service
+    masters = await list_masters()
+    services = await list_services()
+    text = '📊 Средние рейтинги:\n\n'
+    text += '👨‍💼 Мастера:\n'
+    for m in masters:
+        avg, cnt = await average_rating_for_master(m['id'])
+        text += f"• {m['name']}: {avg:.1f}⭐ ({cnt} отзывов)\n"
+    text += '\n💇‍♀️ Услуги:\n'
+    for s in services:
+        avg, cnt = await average_rating_for_service(s['id'])
+        text += f"• {s['name']}: {avg:.1f}⭐ ({cnt} отзывов)\n"
+    await message.answer(text)
 
 @router.message(Command('delete_master'))
 async def cmd_delete_master(message: Message):
