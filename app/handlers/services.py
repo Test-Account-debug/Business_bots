@@ -1,12 +1,13 @@
 from aiogram import Router
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.filters import Command
 from app.repo import list_services
 from app.repo import average_rating_for_service
 from app.utils import format_rating
 
 router = Router()
 
-@router.message(commands=['services'])
+@router.message(Command('services'))
 async def cmd_services(message: Message):
     services = await list_services()
     if not services:

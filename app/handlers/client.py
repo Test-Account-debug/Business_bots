@@ -1,11 +1,12 @@
 from aiogram import Router
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.filters import Command
 from app.repo import list_services, average_rating_for_service
 from app.utils import format_rating
 
 router = Router()
 
-@router.message(commands=['start'])
+@router.message(Command('start'))
 async def cmd_start(message: Message):
     kb = ReplyKeyboardMarkup(
         keyboard=[

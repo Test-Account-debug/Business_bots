@@ -1,6 +1,5 @@
 from aiogram import Router
 from aiogram.types import CallbackQuery, Message
-from aiogram.filters import Text
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from app.repo import get_or_create_user, create_booking, list_masters, SlotTaken, DoubleBooking, get_service, average_rating_for_master
@@ -41,7 +40,7 @@ async def _get_state(ctx: FSMContext):
         data = await ctx.get_data()
         return data.get('_state')
 
-@router.callback_query(Text(startswith='book:service:'))
+@router.callback_query(lambda q: q.data and q.data.startswith('book:service:'))
 async def cb_select_service(query: CallbackQuery, state: FSMContext):
     service_id = int(query.data.split(':')[-1])
     await state.update_data(service_id=service_id)
@@ -64,7 +63,7 @@ async def cb_select_service(query: CallbackQuery, state: FSMContext):
     await query.message.answer(text, reply_markup=kb)
     await query.answer("")
 
-@router.callback_query(Text(startswith='book:master:'))
+@router.callback_query(lambda q: q.data and q.data.startswith('book:master:'))
 async def cb_select_master(query: CallbackQuery, state: FSMContext):
     master_id = int(query.data.split(':')[-1])
     await state.update_data(master_id=master_id)
@@ -81,7 +80,7 @@ class ManualRequestStates(StatesGroup):
     CONFIRM = State()
 
 
-@router.callback_query(Text(startswith='manual:request:start'))
+@router.callback_query(lambda q: q.data and q.data.startswith('manual:request:start'))
 async def cb_manual_start(query: CallbackQuery, state: FSMContext):
     # can be 'manual:request:start' or 'manual:request:start:master:<id>'
     parts = query.data.split(':')
@@ -98,7 +97,7 @@ async def cb_manual_start(query: CallbackQuery, state: FSMContext):
     await query.answer("")
 
 
-@router.callback_query(Text(startswith='manual:request:cancel'))
+@router.callback_query(lambda q: q.data and q.data.startswith('manual:request:cancel'))
 async def cb_manual_cancel(query: CallbackQuery, state: FSMContext):
     await state.clear()
     await query.message.answer('Ручная заявка отменена.')
@@ -149,7 +148,7 @@ async def mr_phone(message: Message, state: FSMContext):
     await _set_state(state, ManualRequestStates.CONFIRM)
 
 
-@router.callback_query(Text(startswith='manual:request:confirm'))
+@router.callback_query(lambda q: q.data and q.data.startswith('manual:request:confirm'))
 async def cb_manual_confirm(query: CallbackQuery, state: FSMContext):
     cur = await _get_state(state)
     if cur != ManualRequestStates.CONFIRM.state:
@@ -171,7 +170,7 @@ async def cb_manual_confirm(query: CallbackQuery, state: FSMContext):
     await state.clear()
     await query.answer("")
 
-@router.callback_query(Text(startswith='book:master_choose:'))
+@router.callback_query(lambda q: q.data and q.data.startswith('book:master_choose:'))
 async def cb_master_choose(query: CallbackQuery, state: FSMContext):
     mid = int(query.data.split(':')[-1])
     data = await state.get_data()
@@ -279,7 +278,7 @@ async def process_date(message: Message, state: FSMContext):
     await message.answer('Выберите время:', reply_markup=kb)
     await _set_state(state, BookingStates.TIME)
 
-@router.callback_query(Text(startswith='book:time:'))
+@router.callback_query(lambda q: q.data and q.data.startswith('book:time:'))
 async def cb_select_time(query: CallbackQuery, state: FSMContext):
     time_s = query.data.split(':')[-1]
     await state.update_data(time=time_s)
@@ -329,7 +328,7 @@ async def process_phone(message: Message, state: FSMContext):
     await message.answer(text, reply_markup=kb)
     await _set_state(state, BookingStates.CONFIRM)
 
-@router.callback_query(Text(equals='book:confirm'))
+@router.callback_query(lambda q: q.data == 'book:confirm')
 async def cb_confirm(query: CallbackQuery, state: FSMContext):
     cur = await _get_state(state)
     if cur != BookingStates.CONFIRM.state:
@@ -376,7 +375,7 @@ async def cb_confirm(query: CallbackQuery, state: FSMContext):
     await state.clear()
     await query.answer()
 
-@router.callback_query(Text(equals='book:cancel'))
+@router.callback_query(lambda q: q.data == 'book:cancel')
 async def cb_cancel(query: CallbackQuery, state: FSMContext):
     cur = await _get_state(state)
     if cur != BookingStates.CONFIRM.state:
