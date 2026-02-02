@@ -90,6 +90,7 @@ async def cmd_set_schedule(message: Message):
 
 @router.message(Command('add_exception'))
 async def cmd_add_exception(message: Message):
+    # TODO: FROZEN for MVP demo — advanced master exception management not part of MVP
     if not is_admin(message.from_user.id):
         await message.answer('Доступ запрещён')
         return
@@ -114,6 +115,7 @@ async def cmd_add_exception(message: Message):
 
 @router.message(Command('list_exceptions'))
 async def cmd_list_exceptions(message: Message):
+    # TODO: FROZEN for MVP demo — advanced master exception management not part of MVP
     if not is_admin(message.from_user.id):
         await message.answer('Доступ запрещён')
         return
@@ -193,6 +195,8 @@ async def cmd_complete_booking(message: Message):
 
 @router.message(Command('export_bookings'))
 async def cmd_export_bookings(message: Message):
+    # TODO: FROZEN for MVP demo — exported data analytics not part of client demo
+    # To enable: uncomment code below and ensure app.admin_utils is imported
     if not is_admin(message.from_user.id):
         await message.answer('Доступ запрещён')
         return
@@ -205,6 +209,25 @@ async def cmd_export_bookings(message: Message):
         bio.seek(0)
         # send BytesIO directly as document; some aiogram versions accept file-like objects
         await message.bot.send_document(message.chat.id, bio, filename='export.csv', caption='Экспорт записей', disable_notification=True)
+        await message.answer('Экспорт отправлен')
+    except Exception as e:
+        await message.answer('Ошибка экспорта: ' + str(e))
+
+
+@router.message(Command('export_reviews'))
+async def cmd_export_reviews(message: Message):
+    # TODO: FROZEN for MVP demo — exported data analytics not part of client demo
+    # To enable: uncomment code below and ensure app.export is imported
+    if not is_admin(message.from_user.id):
+        await message.answer('Доступ запрещён')
+        return
+    from app.export import export_reviews_csv_bytes
+    from io import BytesIO
+    try:
+        data = await export_reviews_csv_bytes()
+        bio = BytesIO(data)
+        bio.seek(0)
+        await message.bot.send_document(message.chat.id, bio, filename='reviews_export.csv', caption='Экспорт отзывов', disable_notification=True)
         await message.answer('Экспорт отправлен')
     except Exception as e:
         await message.answer('Ошибка экспорта: ' + str(e))

@@ -1,6 +1,7 @@
 from aiogram import Router
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
-from app.repo import list_services
+from app.repo import list_services, average_rating_for_service
+from app.utils import format_rating
 
 router = Router()
 
@@ -24,6 +25,10 @@ async def show_services(message: Message):
         return
     rows = []
     for s in services:
-        rows.append([InlineKeyboardButton(text=f"{s['name']} — {s['price']}", callback_data=f"book:service:{s['id']}")])
+        avg, cnt = await average_rating_for_service(s['id'])
+        rating_str = format_rating(avg, cnt)
+        btn_text = f"{s['name']} — {s['price']}"
+        rows.append([InlineKeyboardButton(text=btn_text, callback_data=f"book:service:{s['id']}")])
+        # send individual message per service with rating (keeps existing behavior similar to /services)
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
     await message.answer('💇 Выберите услугу для записи:', reply_markup=kb)

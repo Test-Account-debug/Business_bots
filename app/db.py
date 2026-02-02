@@ -1,6 +1,7 @@
 import aiosqlite
 import os
 import glob
+from contextlib import asynccontextmanager
 
 def _db_path():
     return os.environ.get('DATABASE_URL', 'sqlite:///./bot.db').replace('sqlite:///', '')
@@ -21,7 +22,12 @@ async def init_db():
                 raise
         await db.commit()
 
+
+@asynccontextmanager
 async def get_db():
     conn = await aiosqlite.connect(_db_path())
     conn.row_factory = aiosqlite.Row
-    return conn
+    try:
+        yield conn
+    finally:
+        await conn.close()

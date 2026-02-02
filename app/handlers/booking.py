@@ -3,8 +3,12 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.filters import Text
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from app.repo import get_or_create_user, create_booking, list_masters, SlotTaken, DoubleBooking
-from app.utils import valid_phone
+from app.repo import get_or_create_user, create_booking, list_masters, SlotTaken, DoubleBooking, get_service, average_rating_for_master
+from app.utils import valid_phone, format_rating
+
+# Для автозавершения
+from app.auto_complete import schedule_auto_complete
+from app.reminders import schedule_reminders
 
 router = Router()
 
@@ -50,7 +54,12 @@ async def cb_select_service(query: CallbackQuery, state: FSMContext):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for m in masters:
-        kb.add(InlineKeyboardButton(text=m['name'], callback_data=f'book:master:{m["id"]}'))
+        avg, cnt = await average_rating_for_master(m['id'])
+        rating = format_rating(avg, cnt)
+        label = m['name']
+        if rating:
+            label = f"{m['name']} {rating}"
+        kb.add(InlineKeyboardButton(text=label, callback_data=f'book:master:{m["id"]}'))
     kb.add(InlineKeyboardButton(text='Без выбора', callback_data='book:master:0'))
     await query.message.answer(text, reply_markup=kb)
     await query.answer("")
@@ -238,12 +247,22 @@ async def process_date(message: Message, state: FSMContext):
         from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
         rows = []
         for m, slots in masters_with:
-            rows.append([InlineKeyboardButton(text=f"{m['name']} ({len(slots)}), выбрать", callback_data=f'book:master_choose:{m['id']}')])
+            avg, cnt = await average_rating_for_master(m['id'])
+            rating = format_rating(avg, cnt)
+            label = f"{m['name']} ({len(slots)}), выбрать"
+            if rating:
+                label = f"{m['name']} {rating} ({len(slots)}), выбрать"
+            rows.append([InlineKeyboardButton(text=label, callback_data=f'book:master_choose:{m['id']}')])
         # Also show masters with zero slots as option for manual request
         all_masters = await list_masters()
         for m in all_masters:
             if not any(m2['id'] == m['id'] for m2, _ in masters_with):
-                rows.append([InlineKeyboardButton(text=f"{m['name']} (❌ занято) — запросить", callback_data=f'manual:request:start:master:{m["id"]}')])
+                avg, cnt = await average_rating_for_master(m['id'])
+                rating = format_rating(avg, cnt)
+                label = f"{m['name']} (❌ занято) — запросить"
+                if rating:
+                    label = f"{m['name']} {rating} (❌ занято) — запросить"
+                rows.append([InlineKeyboardButton(text=label, callback_data=f'manual:request:start:master:{m["id"]}')])
         kb = InlineKeyboardMarkup(inline_keyboard=rows)
         await message.answer('Выберите мастера с доступным временем или отправьте запрос для занятых мастеров:', reply_markup=kb)
         return
@@ -320,6 +339,23 @@ async def cb_confirm(query: CallbackQuery, state: FSMContext):
     user = await get_or_create_user(query.from_user.id, name=data.get('name'), phone=data.get('phone'))
     try:
         await create_booking(user['id'], data['service_id'], data['master_id'] if data['master_id'] != 0 else None, data['date'], data['time'], data['name'], data['phone'])
+        # Получаем длительность услуги и id бронирования (поиск по данным)
+        service = await get_service(data['service_id'])
+        duration = service['duration_minutes'] if service and 'duration_minutes' in service else 30
+        # Получаем id только что созданной записи (по уникальным данным)
+        from app.repo import list_bookings
+        bookings = await list_bookings()
+        booking_id = None
+        for b in bookings:
+            if b['user_id'] == user['id'] and b['service_id'] == data['service_id'] and b['date'] == data['date'] and b['time'] == data['time']:
+                booking_id = b['id']
+                break
+        if booking_id:
+            schedule_auto_complete(booking_id, data['date'], data['time'], duration)
+            try:
+                schedule_reminders(booking_id, data['date'], data['time'])
+            except Exception:
+                pass
     except SlotTaken:
         await query.message.answer('😔 Извините, это время уже занято. Попробуйте выбрать другое.')
         await state.clear()

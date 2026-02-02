@@ -6,11 +6,10 @@ from app.db import get_db
 
 async def export_bookings_csv_bytes():
     """Return CSV content as bytes (utf-8)."""
-    db = await get_db()
-    cur = await db.execute('SELECT * FROM bookings')
-    rows = await cur.fetchall()
-    cols = [col[0] for col in cur.description]
-    await db.close()
+    async with get_db() as db:
+        cur = await db.execute('SELECT * FROM bookings')
+        rows = await cur.fetchall()
+        cols = [col[0] for col in cur.description]
 
     sio = StringIO()
     writer = csv.writer(sio)
@@ -19,6 +18,12 @@ async def export_bookings_csv_bytes():
         writer.writerow([r[c] for c in cols])
     csv_text = sio.getvalue()
     return csv_text.encode('utf-8')
+
+
+async def export_bookings_csv_bytes_friendly():
+    """New friendly CSV format delegating to app.export (id,date,time,service,master,client_name,phone,status)."""
+    from app.export import export_bookings_csv_bytes as _exp
+    return await _exp()
 
 
 async def export_bookings_csv(path='export/bookings.csv'):
