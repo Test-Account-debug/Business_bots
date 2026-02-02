@@ -6,7 +6,8 @@ from app.repo import create_master, create_service, list_bookings, set_master_sc
 from app.scheduler import add_exception, list_exceptions
 
 router = Router()
-ADMIN_IDS = [int(x) for x in os.environ.get('ADMIN_IDS','').split(',') if x]
+# Read admin IDs from environment using getenv (safer & consistent)
+ADMIN_IDS = [int(x) for x in os.getenv('ADMIN_IDS','').split(',') if x]
 
 # Simple in-memory staging for multi-step admin dialogs (per admin user)
 STAGED_EDITS = {}

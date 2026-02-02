@@ -4,7 +4,8 @@ import glob
 from contextlib import asynccontextmanager
 
 def _db_path():
-    return os.environ.get('DATABASE_URL', 'sqlite:///./bot.db').replace('sqlite:///', '')
+    # Read DATABASE_URL via getenv so .env.local can override in demo setups
+    return os.getenv('DATABASE_URL', 'sqlite:///./bot.db').replace('sqlite:///', '')
 
 async def init_db():
     files = sorted(glob.glob('migrations/*.sql'))

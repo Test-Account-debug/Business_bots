@@ -8,7 +8,7 @@ from app.handlers.booking import router as booking_router
 from app.handlers.services import router as services_router
 from app.db import init_db
 
-BOT_TOKEN = os.environ.get('BOT_TOKEN')
+BOT_TOKEN = os.getenv('BOT_TOKEN')
 
 async def start_bot():
     bot = Bot(BOT_TOKEN)

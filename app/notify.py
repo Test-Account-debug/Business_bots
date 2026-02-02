@@ -1,8 +1,9 @@
 import os
 from aiogram import Bot
 
-BOT_TOKEN = os.environ.get('BOT_TOKEN')
-ADMIN_IDS = [int(x) for x in os.environ.get('ADMIN_IDS','').split(',') if x]
+# Use os.getenv to read secrets/configs
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+ADMIN_IDS = [int(x) for x in os.getenv('ADMIN_IDS','').split(',') if x]
 
 async def notify_admins(text: str):
     if not BOT_TOKEN or not ADMIN_IDS:
