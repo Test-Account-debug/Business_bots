@@ -239,8 +239,8 @@ async def process_date(message: Message, state: FSMContext):
         if not masters_with:
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
             kb = InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton('Отправить ручную заявку админу', callback_data='manual:request:start'),
-                InlineKeyboardButton('Отмена', callback_data='manual:request:cancel')
+                InlineKeyboardButton(text='Отправить ручную заявку админу', callback_data='manual:request:start'),
+                InlineKeyboardButton(text='Отмена', callback_data='manual:request:cancel')
             ]])
             await message.answer('К сожалению, на этот день нет свободных слотов. Хотите отправить ручную заявку админу?', reply_markup=kb)
             return

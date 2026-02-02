@@ -10,9 +10,9 @@ router = Router()
 async def cmd_start(message: Message):
     kb = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton('🏢 О салоне'), KeyboardButton('💬 Контакты')],
-            [KeyboardButton('💇 Услуги'), KeyboardButton('📅 Запись')],
-            [KeyboardButton('⭐ Отзывы'), KeyboardButton('🤖 Помощник')]
+            [KeyboardButton(text='🏢 О салоне'), KeyboardButton(text='💬 Контакты')],
+            [KeyboardButton(text='💇 Услуги'), KeyboardButton(text='📅 Запись')],
+            [KeyboardButton(text='⭐ Отзывы'), KeyboardButton(text='🤖 Помощник')]
         ],
         resize_keyboard=True
     )
