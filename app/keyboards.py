@@ -18,7 +18,7 @@ def admin_menu_kb():
 def settings_kb():
     buttons = [
         [KeyboardButton(text="🌴 Отправить мастера в отпуск"), KeyboardButton(text="🗓 Настроить дни/часы")],
-        [KeyboardButton(text="💇 Настроить услуги"), KeyboardButton(text="Настроить обеденный перерыв")],
+        [KeyboardButton(text="🛠️ Настроить услуги"), KeyboardButton(text="Настроить обеденный перерыв")],
         [KeyboardButton(text="📍 Настроить код страны"), KeyboardButton(text="📤 Экспорт в CSV")],
         [KeyboardButton(text="⬅️ Назад в меню")]
     ]

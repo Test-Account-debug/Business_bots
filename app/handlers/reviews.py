@@ -12,13 +12,26 @@ MAX_REVIEW_TEXT = 2000
 
 # Simple compatibility helpers for FSM state setting/getting (works with FakeState in tests)
 async def _set_state(ctx, state_obj):
+    # prefer context-based set_state
+    try:
+        await ctx.set_state(state_obj)
+        return
+    except Exception:
+        pass
+    try:
+        await ctx.set_state(state_obj.state)
+        return
+    except Exception:
+        pass
     try:
         await state_obj.set()
+        return
     except Exception:
-        try:
-            await ctx.update_data(_state=state_obj.state)
-        except Exception:
-            pass
+        pass
+    try:
+        await ctx.update_data(_state=state_obj.state)
+    except Exception:
+        pass
 
 async def _get_state(ctx):
     try:

@@ -25,3 +25,6 @@ async def export_reviews_csv_bytes():
         # r['booking_id'] may be None
         writer.writerow([r['booking_id'], r['rating'], r['comment'] or '', r['created_at']])
     return sio.getvalue().encode('utf-8')
+
+
+#kiek isviso siame projekte parasyta kodo eiliu?

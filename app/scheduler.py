@@ -33,6 +33,53 @@ async def list_exceptions(master_id: int):
         rows = await cur.fetchall()
         return rows
 
+
+# Defaults for MVP when no schedule is configured in DB
+DEFAULT_WORK_DAYS = [0,1,2,3,4]
+DEFAULT_START_TIME = "09:00"
+DEFAULT_END_TIME = "18:00"
+
+
+async def get_master_work_info(master_id: int):
+    """Return (work_days:list[int], start_time:str, end_time:str, slot_interval:int|None)
+
+    Prefer explicit entries in master_schedule. If none, fall back to defaults.
+    """
+    async with get_db() as db:
+        cur = await db.execute('SELECT weekday, start_time, end_time, slot_interval_minutes FROM master_schedule WHERE master_id=?', (master_id,))
+        rows = await cur.fetchall()
+        if rows:
+            days = sorted({r['weekday'] for r in rows})
+            # pick earliest start and latest end for range display
+            starts = [r['start_time'] for r in rows if r['start_time']]
+            ends = [r['end_time'] for r in rows if r['end_time']]
+            start_time = min(starts) if starts else DEFAULT_START_TIME
+            end_time = max(ends) if ends else DEFAULT_END_TIME
+            # prefer to use slot_interval if provided on any row
+            ints = [r['slot_interval_minutes'] for r in rows if r['slot_interval_minutes']]
+            slot_interval = ints[0] if ints else None
+            return days, start_time, end_time, slot_interval
+        # try to read master table columns if they exist
+        try:
+            cur = await db.execute('SELECT work_days, work_start_time, work_end_time FROM masters WHERE id=?', (master_id,))
+            m = await cur.fetchone()
+            if m:
+                wd = m.get('work_days')
+                if wd:
+                    # assume comma-separated stored values like '0,1,2,3,4'
+                    try:
+                        days = [int(x) for x in str(wd).split(',') if x.strip()]
+                    except Exception:
+                        days = DEFAULT_WORK_DAYS
+                else:
+                    days = DEFAULT_WORK_DAYS
+                start_time = m.get('work_start_time') or DEFAULT_START_TIME
+                end_time = m.get('work_end_time') or DEFAULT_END_TIME
+                return days, start_time, end_time, None
+        except Exception:
+            pass
+        return DEFAULT_WORK_DAYS, DEFAULT_START_TIME, DEFAULT_END_TIME, None
+
 async def generate_slots(master_id: int, date_s: str, service_duration: int, buffer_min: int = 0):
     async with get_db() as db:
         # check exception
@@ -43,13 +90,26 @@ async def generate_slots(master_id: int, date_s: str, service_duration: int, buf
         if exc and exc['start_time'] and exc['end_time']:
             start_time, end_time = exc['start_time'], exc['end_time']
         else:
-            wd = datetime.fromisoformat(date_s).weekday()
-            cur = await db.execute('SELECT start_time, end_time, slot_interval_minutes FROM master_schedule WHERE master_id=? AND weekday=?', (master_id, wd))
-            row = await cur.fetchone()
-            if not row:
-                return []
-            start_time, end_time = row['start_time'], row['end_time']
-            slot_interval = row['slot_interval_minutes'] if row['slot_interval_minutes'] else (service_duration + buffer_min)
+                wd = datetime.fromisoformat(date_s).weekday()
+                # try to find explicit schedule for that weekday
+                cur = await db.execute('SELECT start_time, end_time, slot_interval_minutes FROM master_schedule WHERE master_id=? AND weekday=?', (master_id, wd))
+                row = await cur.fetchone()
+                if row and row['start_time'] and row['end_time']:
+                    start_time, end_time = row['start_time'], row['end_time']
+                    slot_interval = row['slot_interval_minutes'] if row['slot_interval_minutes'] else (service_duration + buffer_min)
+                else:
+                    # fall back to master-wide work info (defaults for MVP)
+                    try:
+                        from app.scheduler import get_master_work_info
+                        days, start_time, end_time, slot_interval = await get_master_work_info(master_id)
+                        # if slot_interval is None, set it to service_duration+buffer
+                        if not slot_interval:
+                            slot_interval = service_duration + buffer_min
+                        # if weekday is not in master's work days, return empty
+                        if wd not in days:
+                            return []
+                    except Exception:
+                        return []
         slot_interval = locals().get('slot_interval', service_duration + buffer_min)
 
         start_min = hhmm_to_minutes(start_time)
