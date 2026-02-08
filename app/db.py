@@ -10,18 +10,43 @@ def _db_path():
 async def init_db():
     files = sorted(glob.glob('migrations/*.sql'))
     async with aiosqlite.connect(_db_path()) as db:
-        for p in files:
-            with open(p, 'r', encoding='utf-8') as f:
-                sql = f.read()
-            try:
-                await db.executescript(sql)
-            except Exception as e:
-                msg = str(e).lower()
-                # ignore duplicate column errors in Alter migrations
-                if 'duplicate column' in msg or 'already exists' in msg:
-                    continue
-                raise
+
+        if not files:
+            # fallback schema for tests / fresh CI
+            await db.executescript("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tg_id INTEGER UNIQUE,
+                name TEXT,
+                phone TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS bookings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                service_id INTEGER,
+                master_id INTEGER,
+                date TEXT,
+                time TEXT,
+                name TEXT,
+                phone TEXT,
+                status TEXT DEFAULT 'active'
+            );
+            """)
+        else:
+            for p in files:
+                with open(p, 'r', encoding='utf-8') as f:
+                    sql = f.read()
+                try:
+                    await db.executescript(sql)
+                except Exception as e:
+                    msg = str(e).lower()
+                    if 'duplicate column' in msg or 'already exists' in msg:
+                        continue
+                    raise
+
         await db.commit()
+
 
 
 @asynccontextmanager
