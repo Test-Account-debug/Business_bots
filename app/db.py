@@ -2,25 +2,23 @@ import aiosqlite
 import os
 import glob
 from contextlib import asynccontextmanager
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+MIGRATIONS_DIR = BASE_DIR / "migrations"
 
 def _db_path():
     # Read DATABASE_URL via getenv so .env.local can override in demo setups
     return os.getenv('DATABASE_URL', 'sqlite:///./bot.db').replace('sqlite:///', '')
 
 async def init_db():
-    files = sorted(glob.glob('migrations/*.sql'))
+    files = sorted(MIGRATIONS_DIR.glob("*.sql"))
+
     async with aiosqlite.connect(_db_path()) as db:
 
         if not files:
-            # fallback schema for tests / fresh CI
+            # fallback for CI/tests
             await db.executescript("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tg_id INTEGER UNIQUE,
-                name TEXT,
-                phone TEXT
-            );
-
             CREATE TABLE IF NOT EXISTS bookings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
@@ -35,8 +33,7 @@ async def init_db():
             """)
         else:
             for p in files:
-                with open(p, 'r', encoding='utf-8') as f:
-                    sql = f.read()
+                sql = p.read_text(encoding="utf-8")
                 try:
                     await db.executescript(sql)
                 except Exception as e:
@@ -46,8 +43,6 @@ async def init_db():
                     raise
 
         await db.commit()
-
-
 
 @asynccontextmanager
 async def get_db():
